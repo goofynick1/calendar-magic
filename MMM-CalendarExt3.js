@@ -26,7 +26,7 @@ Module.register('MMM-CalendarExt3', {
     calendarSet: [],
     maxEventLines: 5, // How many events will be shown in a day cell.
     fontSize: '18px',
-    eventHeight: '22px',
+    eventHeight: '26px',
     eventFilter: (ev) => { return true },
     eventSorter: null,
     eventTransformer: (ev) => { return ev },
@@ -264,10 +264,12 @@ Module.register('MMM-CalendarExt3', {
         Log.warn (`[DEPRECATED]'CX3_MOVE_CALENDAR' notification will be deprecated. Use 'CX3_GLANCE_CALENDAR' instead.`)
       }
       if (payload?.instanceId === this.config.instanceId || !payload?.instanceId) {
+        console.log ('Move Calendar Detected')
         this.stepIndex += payload?.step ?? 0
         this.updateDom(this.config.animationSpeed)
       }
     }
+    
 
     if (notification === 'CX3_SET_DATE') {
       if (payload?.instanceId === this.config.instanceId || !payload?.instanceId) {
@@ -305,6 +307,13 @@ Module.register('MMM-CalendarExt3', {
       }
     }
   },
+
+  socketNotificationReceived: function(notification, payload) {
+    if (notification === "EVENT_ADD_SUCCESS") {
+        console.log("EVENT_ADD_SUCCESS received, calling forceRefresh...");
+        this.forceRefresh();
+    }
+},
 
   getDom: function() {
     let dom = document.createElement('div')
@@ -547,7 +556,7 @@ Module.register('MMM-CalendarExt3', {
     } while(wm.valueOf() <= eoc.valueOf())
 
     if (config.displayLegend) displayLegend(dom, events, {useSymbol: config.useSymbol})
-
+    
     return dom
   },
 
@@ -571,5 +580,8 @@ Module.register('MMM-CalendarExt3', {
       return new Intl.DateTimeFormat(this.locale, this.config.headerTitleOptions).format(new Date(moment.valueOf()))
     }
     return this.data.header
-  }
+  },
+
+
+  
 })
