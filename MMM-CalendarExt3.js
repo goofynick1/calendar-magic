@@ -26,7 +26,7 @@ Module.register('MMM-CalendarExt3', {
     calendarSet: [],
     maxEventLines: 5, // How many events will be shown in a day cell.
     fontSize: '18px',
-    eventHeight: '26px',
+    eventHeight: '24px',
     eventFilter: (ev) => { return true },
     eventSorter: null,
     eventTransformer: (ev) => { return ev },
@@ -137,15 +137,35 @@ Module.register('MMM-CalendarExt3', {
       }, this.config.waitFetch)
       
     })
-    /* append popover */
+ 
+    /* append popover with notification to send event details*/
     if (popoverSupported) {
-      document.body.addEventListener('click', (ev) => {
-        let eDom = ev.target.closest('.event[data-popoverble=true]')
-        if (eDom) return this.activatePopover(eDom)
-        return
-      })
-      this.preparePopover()
+        document.body.addEventListener('click', (ev) => {
+            let eDom = ev.target.closest('.event[data-popoverble=true]');
+            if (eDom) {
+                // Extract event details
+                let eventDetails = {
+                    id: eDom.dataset.id,
+                    title: eDom.dataset.title,
+                    startDate: eDom.dataset.startDate,
+                    endDate: eDom.dataset.endDate,
+                    location: eDom.dataset.location,
+                    description: eDom.dataset.description,
+                    calendarName: eDom.dataset.calendarName,
+                    allDay: eDom.dataset.fullDayEvent 
+                };
+                
+                // Send the notification with event details
+                this.sendNotification('EDIT_CALENDAR_EVENT', eventDetails);
+
+                // Commenting out the next line to disable popover activation
+                // return this.activatePopover(eDom);
+            }
+            return;
+        });
+        this.preparePopover();
     }
+
   },
 
   preparePopover: function() {
@@ -244,15 +264,19 @@ Module.register('MMM-CalendarExt3', {
   
   notificationReceived: function(notification, payload, sender) {
     if (notification === this.notifications.eventNotification) {
-      let conveertedPayload = this.notifications.eventPayload(payload)
-      if (this?.storedEvents?.length == 0 && payload.length > 0) {
-        this._receiveFirstData({payload: conveertedPayload, sender})
-      }
-      if (this?.library?.loaded) {
-        this.fetch(conveertedPayload, sender)  
-      } else {
-        Log.warn('[CX3] Module is not prepared yet, wait a while.')
-      }
+
+        let convertedPayload = this.notifications.eventPayload(payload);
+
+            // Log the contents of the event notification
+
+        if (this?.storedEvents?.length == 0 && payload.length > 0) {
+            this._receiveFirstData({payload: convertedPayload, sender});
+        }
+        if (this?.library?.loaded) {
+            this.fetch(convertedPayload, sender);  
+        } else {
+            Log.warn('[CX3] Module is not prepared yet, wait a while.');
+        }
     }
 
     if (notification === 'MODULE_DOM_CREATED') {
@@ -264,7 +288,6 @@ Module.register('MMM-CalendarExt3', {
         Log.warn (`[DEPRECATED]'CX3_MOVE_CALENDAR' notification will be deprecated. Use 'CX3_GLANCE_CALENDAR' instead.`)
       }
       if (payload?.instanceId === this.config.instanceId || !payload?.instanceId) {
-        console.log ('Move Calendar Detected')
         this.stepIndex += payload?.step ?? 0
         this.updateDom(this.config.animationSpeed)
       }
@@ -310,8 +333,7 @@ Module.register('MMM-CalendarExt3', {
 
   socketNotificationReceived: function(notification, payload) {
     if (notification === "EVENT_ADD_SUCCESS") {
-        console.log("EVENT_ADD_SUCCESS received, calling forceRefresh...");
-        this.forceRefresh();
+//        this.forceRefresh();
     }
 },
 
@@ -353,7 +375,7 @@ Module.register('MMM-CalendarExt3', {
 
     dom.innerHTML = ''
 
-    const makeCellDom = (d, seq) => {
+    const makeCellDom = (d, seq, eventsOfTheDay) => {
       let tm = new Date(d.valueOf())
       let cell = document.createElement('div')
       cell.classList.add('cell')
@@ -370,6 +392,78 @@ Module.register('MMM-CalendarExt3', {
       
       let h = document.createElement('div')
       h.classList.add('cellHeader')
+
+      let dateDom = document.createElement('div')
+      dateDom.classList.add('cellDate')
+
+      let dParts = new Intl.DateTimeFormat(this.locale, this.config.cellDateOptions).formatToParts(tm)
+      let dateHTML = dParts.reduce((prev, cur, curIndex) => {
+        prev = prev + `<span class="dateParts ${cur.type} seq_${curIndex}">${cur.value}</span>`
+        return prev
+      }, '')
+      dateDom.innerHTML = dateHTML
+
+      h.appendChild(dateDom)
+
+    /* Added functionality to replace events with specific titles with icons in the top right of the day cell */
+      let workTitles = ["Jason work", "Jenn work", "Champions", "Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6"];
+      for (let i = 0; i < workTitles.length; i++) {
+        let workTitle = workTitles[i];
+        if (eventsOfTheDay.some(event => event.title === workTitle)) {
+            let workEvent = eventsOfTheDay.find(event => event.title === workTitle);
+            let workIconDom = document.createElement('div');
+    
+            if (workTitle === "Jason work") {
+                workIconDom.classList.add("workIcon", "jasonWorkIcon");
+            } else if (workTitle === "Jenn work") {
+                workIconDom.classList.add("workIcon", "jennWorkIcon");
+            } else if (workTitle === "Champions") {
+                workIconDom.classList.add("workIcon", "championsIcon");
+            } else if (/^Day \d$/.test(workTitle)) { // Check if the title is "Day X"
+                let dayNumber = workTitle.split(" ")[1]; // Extract the number from "Day X"
+                
+                workIconDom.innerText = dayNumber; // Display the day number as the icon's text
+                
+                if (["2", "3", "5", "6"].includes(dayNumber)) {
+                    workIconDom.style.color = "#bf252c";
+                    workIconDom.style.textOutline = "2px 2px black";
+                } else if (["1", "4"].includes(dayNumber)) {
+                    workIconDom.style.color = "gray";
+                }
+            }
+            // Attach event details to the icon
+            workIconDom.dataset.id = workEvent.id;
+            workIconDom.dataset.title = workEvent.title;
+            workIconDom.dataset.startDate = workEvent.startDate;
+            workIconDom.dataset.endDate = workEvent.endDate;
+            workIconDom.dataset.location = workEvent.location;
+            workIconDom.dataset.description = workEvent.description;
+            workIconDom.dataset.calendarName = workEvent.calendarName;
+            workIconDom.dataset.allday = workEvent.fullDayEvent;
+
+            // Attach click event listener
+            workIconDom.addEventListener('click', (event) => {
+              let clickedElement = event.target;
+          
+              let eventDetails = {
+                  id: clickedElement.dataset.id,
+                  title: clickedElement.dataset.title,
+                  startDate: clickedElement.dataset.startDate,
+                  endDate: clickedElement.dataset.endDate,
+                  location: clickedElement.dataset.location,
+                  description: clickedElement.dataset.description,
+                  calendarName: clickedElement.dataset.calendarName,
+                  allDay: clickedElement.dataset.fullDayEvent 
+              };
+        
+                // Send the notification with event details
+                this.sendNotification('EDIT_CALENDAR_EVENT', eventDetails);
+            });
+    
+            h.appendChild(workIconDom);
+        }
+    };
+    
 
       let cwDom = document.createElement('div')
       if (seq === 0) {
@@ -400,16 +494,16 @@ Module.register('MMM-CalendarExt3', {
         h.appendChild(weatherDom)
       }
 
-      let dateDom = document.createElement('div')
-      dateDom.classList.add('cellDate')
-      let dParts = new Intl.DateTimeFormat(this.locale, this.config.cellDateOptions).formatToParts(tm)
-      let dateHTML = dParts.reduce((prev, cur, curIndex) => {
-        prev = prev + `<span class="dateParts ${cur.type} seq_${curIndex}">${cur.value}</span>`
-        return prev
-      }, '')
-      dateDom.innerHTML = dateHTML
+      // Create button to add event 
+      let btn = document.createElement('button');
+      btn.className = 'eventButton';
+      btn.addEventListener('click', () => {
+        let payload = { date: tm };
+        this.sendNotification('BUTTON_CLICKED', payload);
+      });
 
-      h.appendChild(dateDom)
+      // Add the button to the cell header
+      h.appendChild(btn);
       
       let b = document.createElement('div')
       b.classList.add('cellBody')
@@ -467,30 +561,52 @@ Module.register('MMM-CalendarExt3', {
 
       let boundary = []
 
-      let cm = new Date(wm.valueOf())
-      for (i = 0; i < 7; i++) {
-        if (i) cm = new Date(cm.getFullYear(), cm.getMonth(), cm.getDate() + 1)
-        ccDom.appendChild(makeCellDom(cm, i))
-        boundary.push(cm.getTime())       
-      }
+let cm = new Date(wm.valueOf());
+let sw = new Date(wm.valueOf())
+let ew = new Date(sw.getFullYear(), sw.getMonth(), sw.getDate() + 6, 23, 59, 59, 999)
+let eventsOfWeek = events.filter((ev) => {
+  return !(ev.endDate <= sw.getTime() || ev.startDate >= ew.getTime())
+})
+for (i = 0; i < 7; i++) {
+    if (i) cm = new Date(cm.getFullYear(), cm.getMonth(), cm.getDate() + 1);
+    
+    // Filter events for the current day
+    let eventsOfTheDay = eventsOfWeek.filter((ev) => {
+        return !(ev.endDate <= cm.valueOf() || ev.startDate > new Date(cm.getFullYear(), cm.getMonth(), cm.getDate(), 23, 59, 59, 999).valueOf());
+    });
+
+    // Pass the filtered events to the makeCellDom function
+    ccDom.appendChild(makeCellDom(cm, i, eventsOfTheDay));
+    boundary.push(cm.getTime());       
+}
+
       boundary.push(cm.setHours(23, 59, 59, 999))
 
-      let sw = new Date(wm.valueOf())
-      let ew = new Date(sw.getFullYear(), sw.getMonth(), sw.getDate() + 6, 23, 59, 59, 999)
-      let eventsOfWeek = events.filter((ev) => {
-        return !(ev.endDate <= sw.getTime() || ev.startDate >= ew.getTime())
-      })
+    // Remove names from events that are handled by classes / custom colors
+      function cleanEventTitle(title) {
+        if (title === "Jenn work" || title === "Jenn Work" || title.includes("birthday") || title.includes("Birthday")) {
+          return title; // Return the title unchanged
+        }
+        return title.replace(/Jenn |Sara |Heidi /g, '');
+    }
 
       for (let event of eventsOfWeek) {
-        let eDom = renderEventAgenda(
-          event,
-          {
-            useSymbol: config.useSymbol,
-            eventTimeOptions: config.eventTimeOptions,
-            locale: this.locale
-          },
-          moment
-        )
+        
+        // Modify the event title before rendering
+        // Remove events that are handled with cell icons
+        event.title = cleanEventTitle(event.title);
+        if (event.title !== "Jason work" && event.title !== "Jenn work" 
+          && event.title !== "Champions" && event.title !== "Day 1" && event.title !== "Day 2" && event.title !== "Day 3"
+          && event.title !== "Day 4" && event.title !== "Day 5" && event.title !== "Day 6") {
+          let eDom = renderEventAgenda(
+              event,
+              {
+                  useSymbol: config.useSymbol,
+                  eventTimeOptions: config.eventTimeOptions,
+                  locale: this.locale
+              },
+              moment
+          );
 
         let startLine = 0
         if (event.startDate >= boundary.at(0)) {
@@ -518,19 +634,9 @@ Module.register('MMM-CalendarExt3', {
           eDom.dataset.popoverble = true
           
         }
-
-        /*
-        let esDom = document.createElement('div')
-        esDom.classList.add('eventTime', 'time')
-        let dParts = new Intl.DateTimeFormat(this.locale, this.config.eventTimeOptions).formatToParts(new Date(event.startDate))
-        let dateHTML = dParts.reduce((prev, cur, curIndex, arr) => {
-          prev = prev + `<span class="eventTimeParts ${cur.type} seq_${curIndex}">${cur.value}</span>`
-          return prev
-        }, '')
-        esDom.innerHTML = dateHTML
-        eDom.appendChild(esDom)
-        */
+        
         ecDom.appendChild(eDom)
+      }
       }
 
       let dateCells = ccDom.querySelectorAll('.cell')

@@ -2,7 +2,7 @@
   /* you CAN modify these values; but SHOULD NOT to remove */
   --celllinecolor: #333;
   --cellbgcolor: rgba(0, 0, 0, 0.2);
-  --cellheaderheight: 25px;
+  --cellheaderheight: 33px;
   --cellfooterheight: 2px;
   --defaultcolor: #FFF;
   --eventheight: calc(var(--fontsize) + 4px);
@@ -436,4 +436,26 @@
   overflow-wrap: break-word;
   hyphens: auto;
   /* text-wrap: balance; */ /* Expreimental for CSS Text Module Level 4 */
+}
+
+.CX3 .workIcon {
+  width: 25px;
+  height: 25px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  display: inline-block;
+  margin-right: 5px;
+  margin-top: 5px
+}
+
+.CX3 .jasonWorkIcon {
+  background-image: url('./icon/jason_icon.png');
+}
+
+.CX3 .jennWorkIcon {
+  background-image: url('./icon/jenn_icon.png');
+}
+
+.CX3 .championsIcon {
+  background-image: url('./icon/C_logo.png');
 }
