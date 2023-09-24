@@ -5,7 +5,7 @@ Module.register('MMM-CalendarExt3', {
   defaults: {
     mode: 'week', // or 'month'
     weekIndex: -1, // Which week from this week starts in a view. Ignored on mode 'month' 
-    weeksInView: 3, //  How many weeks will be displayed. Ignored on mode 'month'
+    weeksInView: 5, //  How many weeks will be displayed. Ignored on mode 'month'
     instanceId: null,
     firstDayOfWeek: 1, // 0: Sunday, 1: Monday
     minimalDaysOfNewYear: 4, // When the first week of new year starts in your country.
@@ -157,6 +157,7 @@ Module.register('MMM-CalendarExt3', {
                 
                 // Send the notification with event details
                 this.sendNotification('EDIT_CALENDAR_EVENT', eventDetails);
+              
 
                 // Commenting out the next line to disable popover activation
                 // return this.activatePopover(eDom);
@@ -458,6 +459,7 @@ Module.register('MMM-CalendarExt3', {
         
                 // Send the notification with event details
                 this.sendNotification('EDIT_CALENDAR_EVENT', eventDetails);
+                console.log("event details: " + clickedElement.dataset.id + eventDetails)
             });
     
             h.appendChild(workIconDom);
@@ -591,7 +593,6 @@ for (i = 0; i < 7; i++) {
     }
 
       for (let event of eventsOfWeek) {
-        
         // Modify the event title before rendering
         // Remove events that are handled with cell icons
         event.title = cleanEventTitle(event.title);
@@ -607,6 +608,9 @@ for (i = 0; i < 7; i++) {
               },
               moment
           );
+
+          eDom.dataset.id = event.id;
+
 
         let startLine = 0
         if (event.startDate >= boundary.at(0)) {
